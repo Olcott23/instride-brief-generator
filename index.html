@@ -573,6 +573,19 @@
                         <button class="btn-secondary btn-small" onclick="backToForm()">Back to Form</button>
                         <button class="btn-primary btn-small" onclick="downloadPDF()">Download PDF</button>
                         <button class="btn-secondary btn-small" onclick="window.print()">Print</button>
+                        <button class="btn-secondary btn-small" id="wrongProviderBtn" onclick="showReselection()" style="margin-left:auto; color:#dc2626; border-color:#fca5a5;">Wrong Provider?</button>
+                    </div>
+ 
+                    <!-- Re-selection panel (hidden by default) -->
+                    <div id="reselectionPanel" style="display:none; margin-bottom:20px; padding:20px; background:#fff7ed; border:2px solid #fb923c; border-radius:8px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                            <h3 style="color:#9a3412; font-size:14px; margin:0;">Select the correct provider:</h3>
+                            <button class="btn-secondary btn-small" onclick="hideReselection()">Cancel</button>
+                        </div>
+                        <div id="reselectionList"></div>
+                        <div class="button-group" style="margin-top:12px;">
+                            <button class="btn-primary" id="confirmReselectionBtn" disabled onclick="confirmReselection()">Regenerate Brief</button>
+                        </div>
                     </div>
  
                     <div class="brief" id="briefContent">
@@ -596,6 +609,7 @@
             careCompareData: null,
             zipLookup: null
         };
+        let lastScoredResults = []; // Preserve scored results for re-selection
  
         // Insurance data by state
         const insuranceByState = {
@@ -1201,6 +1215,95 @@
             };
         }
  
+        // Score NPI results against TM-provided practice name and zip code
+        function scoreProviderMatches(results, practiceName, zipCode) {
+            const practiceWords = practiceName.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 2);
+ 
+            const scored = results.map(provider => {
+                let score = 0;
+                const matchDetails = [];
+ 
+                // Check zip code match (across all addresses)
+                if (zipCode && provider.addresses) {
+                    for (const addr of provider.addresses) {
+                        if (addr.postal_code && addr.postal_code.substring(0, 5) === zipCode) {
+                            score += 2;
+                            matchDetails.push('ZIP match');
+                            break;
+                        }
+                    }
+                }
+ 
+                // Check practice/organization name match against addresses and other names
+                if (practiceWords.length > 0) {
+                    // NPI stores org name in addresses (organization_name field) and in other_names
+                    const npiOrgNames = [];
+                    if (provider.addresses) {
+                        provider.addresses.forEach(a => {
+                            if (a.organization_name) npiOrgNames.push(a.organization_name.toLowerCase());
+                        });
+                    }
+                    if (provider.other_names) {
+                        provider.other_names.forEach(n => {
+                            if (n.organization_name) npiOrgNames.push(n.organization_name.toLowerCase());
+                        });
+                    }
+                    // Also check the basic org name if it's a type 2 NPI
+                    if (provider.basic && provider.basic.organization_name) {
+                        npiOrgNames.push(provider.basic.organization_name.toLowerCase());
+                    }
+ 
+                    if (npiOrgNames.length > 0) {
+                        const allOrgText = npiOrgNames.join(' ');
+                        let wordMatches = 0;
+                        practiceWords.forEach(word => {
+                            if (allOrgText.includes(word)) wordMatches++;
+                        });
+                        if (wordMatches > 0) {
+                            const matchRatio = wordMatches / practiceWords.length;
+                            if (matchRatio >= 0.7) {
+                                score += 3;
+                                matchDetails.push('strong practice name match');
+                            } else if (matchRatio >= 0.4) {
+                                score += 2;
+                                matchDetails.push('partial practice name match');
+                            } else {
+                                score += 1;
+                                matchDetails.push('weak practice name match');
+                            }
+                        }
+                    }
+ 
+                    // Also check address lines for practice name keywords
+                    if (provider.addresses) {
+                        const addrText = provider.addresses.map(a =>
+                            `${a.address_1 || ''} ${a.address_2 || ''} ${a.city || ''}`
+                        ).join(' ').toLowerCase();
+                        practiceWords.forEach(word => {
+                            if (addrText.includes(word) && !matchDetails.some(d => d.includes('practice name'))) {
+                                score += 0.5;
+                            }
+                        });
+                    }
+                }
+ 
+                // Slight boost for active/sole proprietor status
+                if (provider.basic && provider.basic.status === 'A') {
+                    score += 0.5;
+                    matchDetails.push('active NPI');
+                }
+ 
+                return { provider, score, matchDetails };
+            });
+ 
+            // Sort by score descending
+            scored.sort((a, b) => b.score - a.score);
+            console.log('[Match] Scored results:', scored.map(s =>
+                `${s.provider.basic.first_name} ${s.provider.basic.last_name} (NPI: ${s.provider.number}) — score: ${s.score} [${s.matchDetails.join(', ')}]`
+            ));
+            return scored;
+        }
+ 
         async function generateBrief() {
             if (!validateForm()) return;
  
@@ -1225,16 +1328,27 @@
                     );
                 }
  
-                currentProviderResults = data.results;
+                // Score and rank results against TM-provided practice name and zip
+                const practiceName = document.getElementById('practiceName').value.trim();
+                const scoredResults = scoreProviderMatches(data.results, practiceName, zipCode);
+                lastScoredResults = scoredResults;
+                currentProviderResults = scoredResults.map(s => s.provider);
  
-                // Determine zip for enrichment (use from results if not provided)
+                // Determine zip for enrichment (use from best result if not provided)
                 const enrichZip = zipCode ||
-                    (data.results[0].addresses && data.results[0].addresses[0]
-                        ? data.results[0].addresses[0].postal_code.substring(0, 5)
+                    (currentProviderResults[0].addresses && currentProviderResults[0].addresses[0]
+                        ? currentProviderResults[0].addresses[0].postal_code.substring(0, 5)
                         : '');
  
-                if (data.results.length === 1) {
-                    selectedProvider = data.results[0];
+                // Auto-select if only one result, or if top match is high confidence
+                const autoSelect = scoredResults.length === 1 ||
+                    (scoredResults.length > 1 && scoredResults[0].score >= 3 && scoredResults[0].score > scoredResults[1].score + 1);
+ 
+                if (autoSelect) {
+                    selectedProvider = currentProviderResults[0];
+                    if (scoredResults.length > 1) {
+                        console.log(`[Match] Auto-selected top match (score: ${scoredResults[0].score}) — ${scoredResults[0].matchDetails.join(', ')}`);
+                    }
                     document.getElementById('loadingText').textContent = 'Enriching brief with additional data...';
                     // Fetch enrichment data in parallel
                     await Promise.all([
@@ -1257,7 +1371,7 @@
                     ]);
                     displayBrief();
                 } else {
-                    showProviderSelector();
+                    showProviderSelector(scoredResults);
                 }
             } catch (error) {
                 showError(error.message);
@@ -1266,32 +1380,61 @@
             }
         }
  
-        function showProviderSelector() {
+        function showProviderSelector(scoredResults) {
             const selector = document.getElementById('providerSelector');
             const list = document.getElementById('providerList');
             list.innerHTML = '';
  
-            currentProviderResults.forEach((provider, index) => {
+            scoredResults.forEach((scored, index) => {
+                const provider = scored.provider;
                 const npiData = provider.basic;
                 const name = `${npiData.first_name || ''} ${npiData.last_name || ''}`.trim();
+                const credential = npiData.credential || '';
                 const taxonomy = provider.taxonomies && provider.taxonomies.length > 0
                     ? provider.taxonomies[0].desc
                     : 'Healthcare Provider';
                 const address = provider.addresses && provider.addresses.length > 0
-                    ? `${provider.addresses[0].address_1}, ${provider.addresses[0].city}, ${provider.addresses[0].state}`
+                    ? `${provider.addresses[0].address_1}, ${provider.addresses[0].city}, ${provider.addresses[0].state} ${(provider.addresses[0].postal_code || '').substring(0, 5)}`
                     : 'Address not available';
+ 
+                // Build match badge
+                let matchBadge = '';
+                if (scored.score >= 4) {
+                    matchBadge = '<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;">Best Match</span>';
+                } else if (scored.score >= 2) {
+                    matchBadge = '<span style="background:#fef9c3;color:#854d0e;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;">Likely Match</span>';
+                } else if (scored.matchDetails.length > 0) {
+                    matchBadge = '<span style="background:#f3f4f6;color:#6b7280;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;">Possible</span>';
+                }
+ 
+                const matchReasons = scored.matchDetails.length > 0
+                    ? `<small style="color:#0d9488;">${scored.matchDetails.join(' · ')}</small>`
+                    : '';
  
                 const option = document.createElement('div');
                 option.className = 'provider-option';
+                if (index === 0 && scored.score >= 2) {
+                    option.style.borderColor = '#0d9488';
+                    option.style.background = '#f0fdfa';
+                }
                 option.onclick = () => selectProvider(index);
                 option.innerHTML = `
-                    <strong>${name}</strong>
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <strong>${name}${credential ? ', ' + credential : ''}</strong>
+                        ${matchBadge}
+                    </div>
                     <small>${taxonomy}</small>
                     <small>${address}</small>
                     <small>NPI: ${provider.number}</small>
+                    ${matchReasons}
                 `;
                 list.appendChild(option);
             });
+ 
+            // Pre-select top match if it scored well
+            if (scoredResults.length > 0 && scoredResults[0].score >= 2) {
+                selectProvider(0);
+            }
  
             selector.classList.add('visible');
         }
@@ -1669,8 +1812,127 @@
         function backToForm() {
             document.getElementById('formSection').classList.remove('hidden');
             document.getElementById('briefSection').classList.remove('visible');
+            hideReselection();
             selectedProvider = null;
             enrichedData = { openPayments: null, censusData: null, careCompareData: null, zipLookup: null };
+        }
+ 
+        // --- Wrong Provider re-selection flow ---
+        let reselectionChoice = null;
+ 
+        function showReselection() {
+            const panel = document.getElementById('reselectionPanel');
+            const list = document.getElementById('reselectionList');
+            list.innerHTML = '';
+            reselectionChoice = null;
+            document.getElementById('confirmReselectionBtn').disabled = true;
+ 
+            if (lastScoredResults.length <= 1) {
+                // No other options — send TM back to the form
+                list.innerHTML = '<p style="font-size:13px; color:#9a3412;">No other provider matches were found. Try editing the name or removing the zip code on the form.</p>';
+                document.getElementById('confirmReselectionBtn').style.display = 'none';
+            } else {
+                document.getElementById('confirmReselectionBtn').style.display = '';
+                lastScoredResults.forEach((scored, index) => {
+                    const provider = scored.provider;
+                    const npiData = provider.basic;
+                    const name = `${npiData.first_name || ''} ${npiData.last_name || ''}`.trim();
+                    const credential = npiData.credential || '';
+                    const taxonomy = provider.taxonomies && provider.taxonomies.length > 0
+                        ? provider.taxonomies[0].desc : 'Healthcare Provider';
+                    const address = provider.addresses && provider.addresses.length > 0
+                        ? `${provider.addresses[0].address_1}, ${provider.addresses[0].city}, ${provider.addresses[0].state} ${(provider.addresses[0].postal_code || '').substring(0, 5)}`
+                        : 'Address not available';
+ 
+                    const isCurrent = provider.number === selectedProvider.number;
+ 
+                    const option = document.createElement('div');
+                    option.className = 'provider-option';
+                    option.style.cursor = isCurrent ? 'default' : 'pointer';
+                    if (isCurrent) {
+                        option.style.opacity = '0.5';
+                        option.style.border = '2px dashed #d1d5db';
+                    }
+                    option.onclick = () => {
+                        if (isCurrent) return;
+                        selectReselection(index);
+                    };
+                    option.innerHTML = `
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <strong>${name}${credential ? ', ' + credential : ''}</strong>
+                            ${isCurrent ? '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;">Current (incorrect)</span>' : ''}
+                            ${scored.matchDetails.length > 0 && !isCurrent ? '<span style="font-size:10px;color:#6b7280;">' + scored.matchDetails.join(' · ') + '</span>' : ''}
+                        </div>
+                        <small>${taxonomy}</small>
+                        <small>${address}</small>
+                        <small>NPI: ${provider.number}</small>
+                    `;
+                    list.appendChild(option);
+                });
+            }
+ 
+            panel.style.display = 'block';
+            // Scroll the panel into view
+            panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+ 
+        function selectReselection(index) {
+            reselectionChoice = index;
+            const options = document.getElementById('reselectionList').querySelectorAll('.provider-option');
+            options.forEach((el, i) => {
+                const provider = lastScoredResults[i].provider;
+                const isCurrent = provider.number === selectedProvider.number;
+                if (isCurrent) return;
+                el.classList.toggle('selected', i === index);
+            });
+            document.getElementById('confirmReselectionBtn').disabled = false;
+        }
+ 
+        function hideReselection() {
+            document.getElementById('reselectionPanel').style.display = 'none';
+            reselectionChoice = null;
+        }
+ 
+        async function confirmReselection() {
+            if (reselectionChoice === null) return;
+ 
+            const newProvider = lastScoredResults[reselectionChoice].provider;
+            selectedProvider = newProvider;
+            hideReselection();
+ 
+            // Show loading state in brief area
+            document.getElementById('briefContent').innerHTML = '<div style="text-align:center;padding:40px;"><div class="spinner"></div><p id="regenText">Regenerating brief with new provider...</p></div>';
+ 
+            // Re-fetch enrichment data for the new provider
+            const firstName = newProvider.basic.first_name || '';
+            const lastName = newProvider.basic.last_name || '';
+            const zipCode = document.getElementById('zipCode').value.trim();
+            const enrichZip = zipCode ||
+                (newProvider.addresses && newProvider.addresses[0]
+                    ? newProvider.addresses[0].postal_code.substring(0, 5) : '');
+ 
+            enrichedData = { openPayments: null, censusData: null, careCompareData: null, zipLookup: null };
+ 
+            try {
+                await Promise.all([
+                    (async () => {
+                        enrichedData.openPayments = await fetchOpenPaymentsData(firstName, lastName);
+                    })(),
+                    (async () => {
+                        if (enrichZip) enrichedData.censusData = await fetchCensusData(enrichZip);
+                    })(),
+                    (async () => {
+                        enrichedData.careCompareData = await fetchCareCompareData(newProvider.number);
+                    })(),
+                    (async () => {
+                        if (enrichZip) enrichedData.zipLookup = await lookupZipCode(enrichZip);
+                    })()
+                ]);
+            } catch (e) {
+                console.warn('[Reselection] Enrichment error:', e);
+            }
+ 
+            displayBrief();
         }
  
         function resetForm() {
