@@ -279,6 +279,129 @@
             .research-links-section {
                 display: none !important;
             }
+            .address-verify-tools {
+                display: none !important;
+            }
+            .npi-address-note {
+                display: none !important;
+            }
+            .photo-tools {
+                display: none !important;
+            }
+            .photo-url-input {
+                display: none !important;
+            }
+        }
+ 
+        .address-editable {
+            width: 100%;
+            border: 1px dashed #d1d5db;
+            border-radius: 4px;
+            padding: 6px 8px;
+            font-size: 12px;
+            font-family: inherit;
+            color: #1f2937;
+            background: #fafafa;
+            resize: none;
+            line-height: 1.4;
+        }
+        .address-editable:focus {
+            outline: none;
+            border-color: #0d9488;
+            background: white;
+            box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.1);
+        }
+        .address-verify-tools {
+            display: flex;
+            gap: 6px;
+            margin-top: 6px;
+            flex-wrap: wrap;
+        }
+        .verify-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px;
+            font-size: 10px;
+            font-weight: 600;
+            border-radius: 12px;
+            border: 1px solid #0d9488;
+            color: #0d9488;
+            background: white;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .verify-btn:hover {
+            background: #0d9488;
+            color: white;
+        }
+        .npi-address-note {
+            font-size: 10px;
+            color: #9ca3af;
+            font-style: italic;
+            margin-top: 4px;
+        }
+        .provider-photo-wrapper {
+            display: flex;
+            gap: 14px;
+            align-items: flex-start;
+        }
+        .provider-photo-area {
+            flex-shrink: 0;
+            width: 80px;
+            text-align: center;
+        }
+        .provider-photo {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid #e5e7eb;
+        }
+        .provider-initials {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #0d9488 0%, #06b6d4 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            font-weight: 700;
+            color: white;
+            letter-spacing: 1px;
+        }
+        .photo-tools {
+            margin-top: 6px;
+        }
+        .photo-tools a, .photo-tools button {
+            display: inline-block;
+            font-size: 9px;
+            color: #0d9488;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+            text-decoration: underline;
+        }
+        .photo-url-input {
+            width: 100%;
+            padding: 4px 6px;
+            font-size: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            margin-top: 4px;
+            display: none;
+            font-family: inherit;
+        }
+        .photo-url-input:focus {
+            outline: none;
+            border-color: #0d9488;
+        }
+        .provider-details-col {
+            flex: 1;
+            min-width: 0;
         }
  
         .brief-header {
@@ -599,6 +722,229 @@
     <script>
         // Configuration
         const CENSUS_API_KEY = 'b90fb50511013444e6d4e9f12a8e35fbedec3f42'; // Free Census API key
+ 
+        // InStride Health availability and accepted insurance by state
+        // Source: https://instride.health/pdf/instride-health-payor-plans-by-state
+        // Last updated: Update this object when new payer contracts are added
+        const INSTRIDE_STATES = {
+            'MA': {
+                available: true,
+                plans: ['Blue Cross Blue Shield of MA', 'Harvard Pilgrim', 'Mass General Brigham Health Plan', 'UnitedHealthcare/Optum', 'Wellpoint (UniCare)', 'ConnectiCare', 'Oscar', 'Oxford Health Plan', 'GEHA', 'Aetna'],
+                notes: ''
+            },
+            'NH': {
+                available: true,
+                plans: ['Harvard Pilgrim', 'Anthem BCBS', 'UnitedHealthcare/Optum', 'Aetna', 'GEHA'],
+                notes: ''
+            },
+            'ME': {
+                available: true,
+                plans: ['Harvard Pilgrim', 'Anthem BCBS', 'UnitedHealthcare/Optum', 'Aetna', 'GEHA'],
+                notes: ''
+            },
+            'CT': {
+                available: true,
+                plans: ['Anthem BCBS', 'Aetna', 'ConnectiCare', 'UnitedHealthcare/Optum', 'Oscar', 'Oxford Health Plan', 'GEHA'],
+                notes: ''
+            },
+            'RI': {
+                available: true,
+                plans: ['BCBS of RI', 'UnitedHealthcare/Optum', 'Aetna', 'GEHA'],
+                notes: ''
+            },
+            'NY': {
+                available: true,
+                plans: ['Empire BCBS', 'EmblemHealth', 'GHI', 'NYSHIP', 'UnitedHealthcare/Optum', 'Oxford Health Plan', 'Oscar', 'Horizon BCBS', 'Aetna', 'GEHA'],
+                notes: ''
+            },
+            'NJ': {
+                available: true,
+                plans: ['Horizon BCBS of NJ', 'UnitedHealthcare/Optum', 'Aetna', 'Oxford Health Plan', 'Oscar', 'GEHA'],
+                notes: ''
+            },
+            'PA': {
+                available: true,
+                plans: ['Highmark BCBS', 'Independence Blue Cross', 'UnitedHealthcare/Optum', 'Aetna', 'GEHA'],
+                notes: ''
+            },
+            'OH': {
+                available: true,
+                plans: ['Medical Mutual of OH', 'Anthem BCBS', 'UnitedHealthcare/Optum', 'Aetna', 'GEHA'],
+                notes: ''
+            },
+            'VA': {
+                available: true,
+                plans: ['Anthem BCBS', 'UnitedHealthcare/Optum', 'Aetna', 'CareFirst BCBS', 'GEHA'],
+                notes: ''
+            },
+            'DC': {
+                available: true,
+                plans: ['CareFirst BCBS', 'UnitedHealthcare/Optum', 'Aetna', 'GEHA'],
+                notes: ''
+            },
+            'IL': {
+                available: true,
+                plans: ['BCBS of IL', 'UnitedHealthcare/Optum', 'Aetna', 'GEHA'],
+                notes: ''
+            },
+            'TX': {
+                available: true,
+                plans: ['BCBS of TX', 'UnitedHealthcare/Optum', 'Aetna', 'GEHA'],
+                notes: ''
+            },
+            'FL': {
+                available: true,
+                plans: ['Florida Blue (BCBS)', 'UnitedHealthcare/Optum', 'Aetna', 'Humana', 'GEHA'],
+                notes: ''
+            },
+            'NC': {
+                available: true,
+                plans: ['BCBS of NC', 'UnitedHealthcare/Optum', 'Aetna', 'GEHA'],
+                notes: ''
+            }
+        };
+        const INSTRIDE_PAYOR_PDF = 'https://instride.health/pdf/instride-health-payor-plans-by-state';
+        const INSTRIDE_AGE_RANGE = { min: 7, max: 24 };
+ 
+        // Check InStride availability for a state
+        function getInStrideAvailability(stateCode) {
+            const state = stateCode ? stateCode.toUpperCase() : '';
+            if (INSTRIDE_STATES[state]) {
+                return { available: true, ...INSTRIDE_STATES[state] };
+            }
+            return { available: false, plans: [], notes: `InStride is not yet available in ${state || 'this state'}.` };
+        }
+ 
+        // Cross-reference local payers with InStride accepted plans
+        function getInsuranceOverlap(localPayers, stateCode) {
+            const instride = getInStrideAvailability(stateCode);
+            if (!instride.available) {
+                return { overlap: [], noOverlap: localPayers, instrideOnly: instride.plans, overlapCount: 0, totalLocal: localPayers.length, percentage: 0 };
+            }
+            const instrideNormalized = instride.plans.map(p => p.toLowerCase());
+            const overlap = [];
+            const noOverlap = [];
+ 
+            localPayers.forEach(payer => {
+                const payerLower = payer.toLowerCase();
+                // Fuzzy match: check if key words overlap (e.g., "Blue Cross" matches "BCBS of MA")
+                const matched = instrideNormalized.some(ip => {
+                    // Direct substring match
+                    if (ip.includes(payerLower) || payerLower.includes(ip)) return true;
+                    // BCBS / Blue Cross matching
+                    if ((payerLower.includes('blue cross') || payerLower.includes('bcbs')) &&
+                        (ip.includes('bcbs') || ip.includes('blue cross'))) return true;
+                    // UnitedHealthcare matching
+                    if ((payerLower.includes('united') || payerLower.includes('uhc')) &&
+                        (ip.includes('united') || ip.includes('optum'))) return true;
+                    // Aetna matching
+                    if (payerLower.includes('aetna') && ip.includes('aetna')) return true;
+                    // Humana matching
+                    if (payerLower.includes('humana') && ip.includes('humana')) return true;
+                    // Anthem matching
+                    if (payerLower.includes('anthem') && ip.includes('anthem')) return true;
+                    return false;
+                });
+                if (matched) {
+                    overlap.push(payer);
+                } else {
+                    noOverlap.push(payer);
+                }
+            });
+ 
+            return {
+                overlap,
+                noOverlap,
+                instrideOnly: instride.plans.filter(ip => !overlap.some(o => {
+                    const ol = o.toLowerCase();
+                    const ipl = ip.toLowerCase();
+                    return ol.includes(ipl) || ipl.includes(ol) ||
+                        ((ol.includes('blue cross') || ol.includes('bcbs')) && (ipl.includes('bcbs') || ipl.includes('blue cross'))) ||
+                        ((ol.includes('united') || ol.includes('uhc')) && (ipl.includes('united') || ipl.includes('optum'))) ||
+                        (ol.includes('aetna') && ipl.includes('aetna'));
+                })),
+                overlapCount: overlap.length,
+                totalLocal: localPayers.length,
+                percentage: localPayers.length > 0 ? Math.round((overlap.length / localPayers.length) * 100) : 0
+            };
+        }
+ 
+        // Calculate referral potential score
+        function getReferralPotential(specialty, pctUnder18, stateAvailable, insuranceOverlapPct) {
+            let score = 0;
+            const factors = [];
+            const s = specialty.toLowerCase();
+ 
+            // Specialty relevance (0-4 points)
+            if (s.includes('pediatric') || s.includes('pediatrician')) {
+                score += 4; factors.push('Primary pediatric provider');
+            } else if (s.includes('psycholog') || s.includes('psychiatr') || s.includes('social work') || s.includes('lcsw') || s.includes('counsel') || s.includes('lpc') || s.includes('lmhc')) {
+                score += 3; factors.push('Mental/behavioral health specialty');
+            } else if (s.includes('family medicine') || s.includes('general practice') || s.includes('nurse practitioner')) {
+                score += 2; factors.push('Primary care — sees pediatric patients');
+            } else if (s.includes('marriage') || s.includes('family therap') || s.includes('occupational')) {
+                score += 2; factors.push('Allied health — pediatric overlap');
+            } else {
+                score += 0; factors.push('Specialty may have limited pediatric overlap');
+            }
+ 
+            // State availability (0-2 points)
+            if (stateAvailable) {
+                score += 2; factors.push('InStride available in state');
+            } else {
+                factors.push('InStride NOT yet available in state');
+            }
+ 
+            // Insurance overlap (0-2 points)
+            if (insuranceOverlapPct >= 50) {
+                score += 2; factors.push('Strong insurance overlap');
+            } else if (insuranceOverlapPct > 0) {
+                score += 1; factors.push('Some insurance overlap');
+            } else {
+                factors.push('No confirmed insurance overlap');
+            }
+ 
+            // Pediatric population (0-2 points)
+            if (pctUnder18 >= 22) {
+                score += 2; factors.push('High pediatric population in area');
+            } else if (pctUnder18 >= 18) {
+                score += 1; factors.push('Moderate pediatric population');
+            } else {
+                factors.push('Lower pediatric population in area');
+            }
+ 
+            // Convert to tier
+            let tier, color, bgColor;
+            if (score >= 8) {
+                tier = 'Very High'; color = '#166534'; bgColor = '#dcfce7';
+            } else if (score >= 6) {
+                tier = 'High'; color = '#166534'; bgColor = '#dcfce7';
+            } else if (score >= 4) {
+                tier = 'Medium'; color = '#854d0e'; bgColor = '#fef9c3';
+            } else {
+                tier = 'Low'; color = '#991b1b'; bgColor = '#fee2e2';
+            }
+ 
+            return { score, tier, color, bgColor, factors };
+        }
+ 
+        // Determine age-range compatibility with InStride (7-24)
+        function getAgeCompatibility(specialty) {
+            const s = specialty.toLowerCase();
+            if (s.includes('pediatric') || s.includes('child') || s.includes('adolescent')) {
+                return { level: 'Full', color: '#166534', bg: '#dcfce7', detail: 'Pediatric specialty — patient population directly overlaps with InStride ages 7–24.' };
+            }
+            if (s.includes('psycholog') || s.includes('social work') || s.includes('counsel') || s.includes('lcsw') || s.includes('lpc') || s.includes('psychiatr') || s.includes('marriage') || s.includes('family therap')) {
+                return { level: 'High', color: '#166534', bg: '#dcfce7', detail: 'Mental health providers commonly treat children, teens, and young adults within InStride\'s 7–24 age range.' };
+            }
+            if (s.includes('family medicine') || s.includes('general practice') || s.includes('nurse practitioner') || s.includes('physician assistant')) {
+                return { level: 'Partial', color: '#854d0e', bg: '#fef9c3', detail: 'Primary care — sees all ages including children and young adults. Portion of panel within InStride\'s 7–24 range.' };
+            }
+            if (s.includes('geriatr') || s.includes('oncolog') || s.includes('cardiol') || s.includes('orthoped')) {
+                return { level: 'Low', color: '#991b1b', bg: '#fee2e2', detail: 'Adult/specialty focus — minimal overlap with InStride\'s 7–24 age range.' };
+            }
+            return { level: 'Unknown', color: '#6b7280', bg: '#f3f4f6', detail: 'Age overlap depends on this provider\'s specific patient population — verify during meeting.' };
+        }
  
         // State management
         let selectedProvider = null;
@@ -1569,6 +1915,16 @@
             // Get insurance payers (use market state, not NPI address state)
             const payers = getInsurancePayers(marketState);
  
+            // InStride availability & insurance overlap
+            const instrideAvail = getInStrideAvailability(marketState);
+            const insuranceOverlap = getInsuranceOverlap(payers, marketState);
+ 
+            // Referral potential
+            const referralPotential = getReferralPotential(specialty, demos.pctUnder18, instrideAvail.available, insuranceOverlap.percentage);
+ 
+            // Age compatibility
+            const ageCompat = getAgeCompatibility(specialty);
+ 
             // Get talking points
             const points = getTalkingPoints(specialty, taxonomyCode);
  
@@ -1650,29 +2006,70 @@
                     </div>
                 </div>
  
+                <!-- Quick-Glance Status Bar -->
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:10px; margin-bottom:16px; font-size:11px;">
+                    <div style="background:${instrideAvail.available ? '#dcfce7' : '#fee2e2'}; border-radius:6px; padding:10px; text-align:center;">
+                        <div style="font-weight:700; color:${instrideAvail.available ? '#166534' : '#991b1b'}; font-size:13px;">${instrideAvail.available ? 'AVAILABLE' : 'NOT AVAILABLE'}</div>
+                        <div style="color:#6b7280; margin-top:2px;">InStride in ${marketState || 'N/A'}</div>
+                    </div>
+                    <div style="background:${referralPotential.bgColor}; border-radius:6px; padding:10px; text-align:center;">
+                        <div style="font-weight:700; color:${referralPotential.color}; font-size:13px;">${referralPotential.tier.toUpperCase()}</div>
+                        <div style="color:#6b7280; margin-top:2px;">Referral Potential</div>
+                    </div>
+                    <div style="background:${ageCompat.bg}; border-radius:6px; padding:10px; text-align:center;">
+                        <div style="font-weight:700; color:${ageCompat.color}; font-size:13px;">${ageCompat.level.toUpperCase()}</div>
+                        <div style="color:#6b7280; margin-top:2px;">Age Overlap (7–24)</div>
+                    </div>
+                    <div style="background:${insuranceOverlap.overlapCount > 0 ? '#dcfce7' : '#fef9c3'}; border-radius:6px; padding:10px; text-align:center;">
+                        <div style="font-weight:700; color:${insuranceOverlap.overlapCount > 0 ? '#166534' : '#854d0e'}; font-size:13px;">${insuranceOverlap.overlapCount} of ${insuranceOverlap.totalLocal}</div>
+                        <div style="color:#6b7280; margin-top:2px;">Payer Overlap</div>
+                    </div>
+                </div>
+ 
                 <div class="brief-content">
                     <div class="brief-section-box">
                         <h3>Provider Snapshot</h3>
-                        <p><strong>Name:</strong><br>${providerName}</p>
-                        <p><strong>Primary Specialty:</strong><br>${specialty}</p>
-                        <p><strong>NPI Number:</strong><br>${npiNumber}</p>
-                        <p><strong>Years in Practice:</strong><br>${yearsInPractice}</p>
-                        <p><strong>Medical School/Training:</strong><br>Not available via NPI - verify before meeting</p>
-                        ${email ? `<p><strong>Email:</strong><br>${email}</p>` : ''}
+                        <div class="provider-photo-wrapper">
+                            <div class="provider-photo-area">
+                                <div id="providerPhotoContainer">
+                                    <div class="provider-initials" id="providerInitials">${(npiData.first_name || '').charAt(0).toUpperCase()}${(npiData.last_name || '').charAt(0).toUpperCase()}</div>
+                                </div>
+                                <div class="photo-tools address-verify-tools" style="justify-content:center; margin-top:6px;">
+                                    <a class="verify-btn" style="font-size:9px; padding:2px 6px;" href="https://www.google.com/search?q=${encodeURIComponent('Dr. ' + (npiData.first_name || '') + ' ' + (npiData.last_name || '') + ' ' + specialty + ' headshot photo')}&tbm=isch" target="_blank">Find Photo</a>
+                                    <button class="verify-btn" style="font-size:9px; padding:2px 6px;" onclick="togglePhotoUrl()">Paste URL</button>
+                                </div>
+                                <input type="text" class="photo-url-input" id="photoUrlInput" placeholder="Paste image URL here..." onchange="updateProviderPhoto(this.value)" onkeypress="if(event.key==='Enter'){updateProviderPhoto(this.value);}">
+                            </div>
+                            <div class="provider-details-col">
+                                <p><strong>Name:</strong><br>${providerName}</p>
+                                <p><strong>Primary Specialty:</strong><br>${specialty}</p>
+                                <p><strong>NPI Number:</strong><br>${npiNumber}</p>
+                                <p><strong>Years in Practice:</strong><br>${yearsInPractice}</p>
+                                <p><strong>Medical School/Training:</strong><br>Not available via NPI - verify before meeting</p>
+                                ${email ? `<p><strong>Email:</strong><br>${email}</p>` : ''}
+                            </div>
+                        </div>
                         ${researchLinksHTML}
                     </div>
  
                     <div class="brief-section-box">
                         <h3>Practice Information</h3>
                         <p><strong>Practice Name:</strong><br>${practiceName}</p>
-                        <p><strong>Address:</strong><br>${address}</p>
-                        <p><strong>Phone:</strong><br>${phone}</p>
+                        <p><strong>Address:</strong></p>
+                        <textarea class="address-editable" id="practiceAddressField" rows="2">${address}</textarea>
+                        <p class="npi-address-note">Pre-filled from NPI registry — may be outdated. Verify and edit above.</p>
+                        <div class="address-verify-tools">
+                            <a class="verify-btn" href="https://www.google.com/maps/search/${encodeURIComponent(practiceName + ' ' + (zipCode || marketZip || ''))}" target="_blank">Google Maps</a>
+                            <a class="verify-btn" href="https://www.google.com/search?q=${encodeURIComponent('"' + practiceName + '" address ' + (zipCode || marketZip || ''))}" target="_blank">Google Search</a>
+                            <a class="verify-btn" href="https://www.google.com/search?q=${encodeURIComponent(practiceName + ' ' + (marketCity || '') + ' ' + (marketState || '') + ' phone number')}" target="_blank">Find Phone</a>
+                        </div>
+                        <p style="margin-top:8px;"><strong>Phone:</strong><br>${phone}</p>
                         <p><strong>Patient Volume Indicator:</strong><br>${demos.volumeIndicator}</p>
                     </div>
  
                     <div class="brief-section-box brief-section-full">
                         <h3>Market & Demographics Context</h3>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
                             <div>
                                 <p><strong>Service Area:</strong><br>${marketCity ? marketCity + ', ' : ''}${marketState}${marketZip ? ' ' + marketZip : ''}${marketCitySource ? ' <em style="font-size:10px;">' + marketCitySource + '</em>' : ''}</p>
                                 <p><strong>Population (Est.):</strong><br>${demos.population.toLocaleString()} residents</p>
@@ -1680,15 +2077,45 @@
                                 <p><strong>Pediatric Population:</strong><br>${demos.pctUnder18}% under 18</p>
                             </div>
                             <div>
-                                <p><strong>Top Insurance Payers:</strong></p>
-                                <ul style="list-style: none; padding-left: 0; font-size: 12px;">
-                                    ${payers.slice(0, 4).map(p => `<li>• ${p}</li>`).join('')}
+                                <p><strong>Top Local Payers:</strong></p>
+                                <ul style="list-style: none; padding-left: 0; font-size: 11px;">
+                                    ${payers.slice(0, 4).map(p => {
+                                        const isOverlap = insuranceOverlap.overlap.some(o => o === p);
+                                        return `<li>${isOverlap ? '<span style="color:#166534;">✓</span>' : '<span style="color:#d1d5db;">○</span>'} ${p}${isOverlap ? ' <em style="font-size:9px;color:#166534;">(InStride)</em>' : ''}</li>`;
+                                    }).join('')}
                                 </ul>
+                            </div>
+                            <div>
+                                <p><strong>InStride Accepted Plans (${marketState}):</strong></p>
+                                ${instrideAvail.available
+                                    ? `<ul style="list-style:none; padding-left:0; font-size:11px;">
+                                        ${instrideAvail.plans.slice(0, 5).map(p => `<li>• ${p}</li>`).join('')}
+                                        ${instrideAvail.plans.length > 5 ? `<li style="color:#6b7280;">+ ${instrideAvail.plans.length - 5} more</li>` : ''}
+                                       </ul>
+                                       <a href="${INSTRIDE_PAYOR_PDF}" target="_blank" style="font-size:10px; color:#0d9488;">Full plan list →</a>`
+                                    : `<p style="font-size:11px; color:#991b1b;">Not yet available in ${marketState}</p>`
+                                }
                             </div>
                         </div>
                         <p style="margin-top: 12px; font-size: 11px; color: #6b7280; font-style: italic;">
-                            <strong>Note:</strong> Demographics are from ${demos.dataSource}—verify with local market data.
+                            <strong>Note:</strong> Demographics from ${demos.dataSource}. Insurance plans verified at <a href="${INSTRIDE_PAYOR_PDF}" target="_blank" style="color:#0d9488;">instride.health</a> — confirm current coverage before meeting.
                         </p>
+                    </div>
+ 
+                    <!-- Referral Potential & Age Compatibility Details -->
+                    <div class="brief-section-box brief-section-full" style="padding:12px 16px;">
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; font-size:11px;">
+                            <div>
+                                <p><strong>Referral Potential: <span style="color:${referralPotential.color};">${referralPotential.tier}</span></strong></p>
+                                <ul style="list-style:none; padding-left:0; color:#6b7280; font-size:11px; line-height:1.7;">
+                                    ${referralPotential.factors.map(f => `<li>• ${f}</li>`).join('')}
+                                </ul>
+                            </div>
+                            <div>
+                                <p><strong>Age Compatibility: <span style="color:${ageCompat.color};">${ageCompat.level}</span></strong> (InStride serves ages 7–24)</p>
+                                <p style="color:#6b7280; margin-top:4px;">${ageCompat.detail}</p>
+                            </div>
+                        </div>
                     </div>
  
                     ${treatmentHTML}
@@ -1798,6 +2225,20 @@
             const tmName = document.getElementById('tmName').value.trim() || 'Brief';
             const fileName = `InStride-Provider-Brief-${formatDate(new Date()).replace(/\s/g, '-')}.pdf`;
  
+            // Swap textarea with static text for clean PDF rendering
+            const addressField = document.getElementById('practiceAddressField');
+            const currentAddress = addressField ? addressField.value : '';
+            let placeholder = null;
+            if (addressField) {
+                placeholder = document.createElement('p');
+                placeholder.id = 'practiceAddressField-pdf';
+                placeholder.style.fontSize = '12px';
+                placeholder.style.margin = '4px 0';
+                placeholder.textContent = currentAddress;
+                addressField.style.display = 'none';
+                addressField.parentNode.insertBefore(placeholder, addressField.nextSibling);
+            }
+ 
             const opt = {
                 margin: 10,
                 filename: fileName,
@@ -1806,7 +2247,39 @@
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
  
-            html2pdf().set(opt).from(briefContent).save();
+            html2pdf().set(opt).from(briefContent).save().then(() => {
+                // Restore textarea after PDF generation
+                if (addressField && placeholder) {
+                    addressField.style.display = '';
+                    placeholder.remove();
+                }
+            });
+        }
+ 
+        // Provider photo functions
+        function togglePhotoUrl() {
+            const input = document.getElementById('photoUrlInput');
+            if (input) {
+                input.style.display = input.style.display === 'none' ? 'block' : 'none';
+                if (input.style.display === 'block') input.focus();
+            }
+        }
+ 
+        function updateProviderPhoto(url) {
+            if (!url || !url.trim()) return;
+            const container = document.getElementById('providerPhotoContainer');
+            if (!container) return;
+ 
+            const img = new Image();
+            img.onload = function() {
+                container.innerHTML = `<img src="${url}" class="provider-photo" alt="Provider photo">`;
+                const input = document.getElementById('photoUrlInput');
+                if (input) input.style.display = 'none';
+            };
+            img.onerror = function() {
+                alert('Could not load image from that URL. Try right-clicking the image in your browser and selecting "Copy image address" to get a direct image link.');
+            };
+            img.src = url;
         }
  
         function backToForm() {
